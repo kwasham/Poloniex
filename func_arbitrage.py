@@ -54,4 +54,23 @@ def structure_traingular_pairs(coin_list):
 
                             #Determining Triangular Match
                             if counts_c_base == 2 and counts_c_quote == 2 and c_base != c_quote:
-                                print(pair_a['symbol'], pair_b['symbol'], pair_c['symbol'])
+                                combined = pair_a['symbol'] + "," + pair_b['symbol'] + "," + pair_c['symbol']
+                                unique_item = ''.join(sorted(combine_all))
+                                if unique_item not in remove_duplicates_list:
+                                    match_dict = {
+                                        "a_base": a_base,
+                                        "b_base": b_base,
+                                        "c_base": c_base,
+                                        "a_quote": a_quote,
+                                        "b_quote": b_quote,
+                                        "c_quote": c_quote,
+                                        "pair_a": pair_a['symbol'],
+                                        "pair_b": pair_b['symbol'],
+                                        "pair_c": pair_c['symbol'],
+                                        "combined": combined
+                                    }
+                                    triangular_pairs_list.append(match_dict)
+                                    remove_duplicates_list.append(unique_item)
+
+
+    return triangular_pairs_list
