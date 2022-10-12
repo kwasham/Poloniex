@@ -1,13 +1,7 @@
-import json
-
-import requests
-
 import func_arbitrage
-
-"""
-Set Variables
-"""
-ticker_url = "https://api.poloniex.com/markets/ticker24h"
+import json
+#Set Variables
+coin_price_url = "https://poloniex.com/public?command=returnTicker"
 
 """
 Step 0: Finding coins which can be traded
@@ -15,7 +9,7 @@ Exchange: Poloniex
 https://docs.poloniex.com/#introduction
 """
 def step_0():
-    coin_list = func_arbitrage.get_coin_tickers(ticker_url)
+    coin_list = func_arbitrage.get_coin_tickers(coin_price_url)
 
     return coin_list
 
@@ -36,21 +30,22 @@ def step_1(coin_list):
     Exchange: Poloniex
     https://docs.poloniex.com/#public-endpoints-reference-data-symbol-information
 """
-def step_2(coin_list):
-    url = "https://api.exchange.coinbase.com/products/BTC-USD/ticker"
+def step_2():
+    #Get Structured Pairs
+    with open("structured_triangular_pairs.json") as json_file:
+        structured_pairs = json.load(json_file)
 
-    headers = {"accept": "application/json"}
+    #Get latest surface prices
+    prices_json = func_arbitrage.get_coin_tickers(coin_price_url)
 
-    response = requests.get(url, headers=headers)
-
-    print(response.text)
-
-
-
+    #Loop through and get structured price information
+    for t_pairs in structured_pairs:
+        prices_dict = func_arbitrage.get_price_for_t_pair(t_pairs, prices_json)
+        print(prices_dict)
 
 
 """ MAIN """
 if __name__ == "__main__":
-    coin_list = step_0()
+    # coin_list = step_0()
     # structured_pairs = step_1(coin_list)
-    step_2(coin_list)
+    step_2()

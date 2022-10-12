@@ -15,7 +15,7 @@ def structure_traingular_pairs(coin_list):
 
     # Get Pair A
     for pair_a in pairs_list:
-        pair_a_split = pair_a['symbol'].split('_')
+        pair_a_split = pair_a.split('_')
         a_base = pair_a_split[0]
         a_quote = pair_a_split[1]
 
@@ -24,22 +24,22 @@ def structure_traingular_pairs(coin_list):
 
         #Get Pair B
         for pair_b in pairs_list:
-            pair_b_split = pair_b['symbol'].split('_')
+            pair_b_split = pair_b.split('_')
             b_base = pair_b_split[0]
             b_quote = pair_b_split[1]
 
             #Check Pair B
-            if pair_b['symbol'] != pair_a['symbol']:
+            if pair_b != pair_a:
                 if b_base in a_pair_box or b_quote in a_pair_box:
                     #Get Pair C
                     for pair_c in pairs_list:
-                        pair_c_split = pair_c['symbol'].split('_')
+                        pair_c_split = pair_c.split('_')
                         c_base = pair_c_split[0]
                         c_quote = pair_c_split[1]
 
                         #Count the number of matching C items
-                        if pair_c['symbol'] != pair_a['symbol'] and pair_c['symbol'] != pair_b['symbol']:
-                            combine_all = [pair_a['symbol'], pair_b['symbol'], pair_c['symbol']]
+                        if pair_c != pair_a and pair_c != pair_b:
+                            combine_all = [pair_a, pair_b, pair_c]
                             pair_box = [a_base, a_quote, b_base, b_quote, c_base, c_quote]
 
                             counts_c_base = 0
@@ -54,7 +54,7 @@ def structure_traingular_pairs(coin_list):
 
                             #Determining Triangular Match
                             if counts_c_base == 2 and counts_c_quote == 2 and c_base != c_quote:
-                                combined = pair_a['symbol'] + "," + pair_b['symbol'] + "," + pair_c['symbol']
+                                combined = pair_a + "," + pair_b + "," + pair_c
                                 unique_item = ''.join(sorted(combine_all))
                                 if unique_item not in remove_duplicates_list:
                                     match_dict = {
@@ -64,9 +64,9 @@ def structure_traingular_pairs(coin_list):
                                         "a_quote": a_quote,
                                         "b_quote": b_quote,
                                         "c_quote": c_quote,
-                                        "pair_a": pair_a['symbol'],
-                                        "pair_b": pair_b['symbol'],
-                                        "pair_c": pair_c['symbol'],
+                                        "pair_a": pair_a,
+                                        "pair_b": pair_b,
+                                        "pair_c": pair_c,
                                         "combined": combined
                                     }
                                     triangular_pairs_list.append(match_dict)
@@ -74,3 +74,29 @@ def structure_traingular_pairs(coin_list):
 
 
     return triangular_pairs_list
+
+#structure prices
+def get_price_for_t_pair(t_pair, prices_json):
+
+    #extract pair info
+    pair_a = t_pair['pair_a']
+    pair_b = t_pair['pair_b']
+    pair_c = t_pair['pair_c']
+
+    #extract price information for given pairs
+    pair_a_ask = prices_json[pair_a]['lowestAsk']
+    pair_a_bid = prices_json[pair_a]['highestBid']
+    pair_b_ask = prices_json[pair_b]['lowestAsk']
+    pair_b_bid = prices_json[pair_b]['highestBid']
+    pair_c_ask = prices_json[pair_c]['lowestAsk']
+    pair_c_bid = prices_json[pair_c]['highestBid']
+
+    #output dictionary
+    return {
+        "pair_a_ask": pair_a_ask,
+        "pair_a_bid": pair_a_bid,
+        "pair_b_ask": pair_b_ask,
+        "pair_b_bid": pair_b_bid,
+        "pair_c_ask": pair_b_ask,
+        "pair_c_bid": pair_b_bid,
+    }
