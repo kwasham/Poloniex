@@ -1,13 +1,14 @@
 import requests
 
+
 def get_coin_tickers(url):
     req = requests.get(url)
     json_resp = req.json()
     return json_resp
 
-#Structure arbitrage pairs
-def structure_traingular_pairs(coin_list):
 
+# Structure arbitrage pairs
+def structure_triangular_pairs(coin_list):
     # Declare Variables
     triangular_pairs_list = []
     remove_duplicates_list = []
@@ -19,25 +20,25 @@ def structure_traingular_pairs(coin_list):
         a_base = pair_a_split[0]
         a_quote = pair_a_split[1]
 
-        #Assign A to a Box
+        # Assign A to a Box
         a_pair_box = [a_base, a_quote]
 
-        #Get Pair B
+        # Get Pair B
         for pair_b in pairs_list:
             pair_b_split = pair_b.split('_')
             b_base = pair_b_split[0]
             b_quote = pair_b_split[1]
 
-            #Check Pair B
+            # Check Pair B
             if pair_b != pair_a:
                 if b_base in a_pair_box or b_quote in a_pair_box:
-                    #Get Pair C
+                    # Get Pair C
                     for pair_c in pairs_list:
                         pair_c_split = pair_c.split('_')
                         c_base = pair_c_split[0]
                         c_quote = pair_c_split[1]
 
-                        #Count the number of matching C items
+                        # Count the number of matching C items
                         if pair_c != pair_a and pair_c != pair_b:
                             combine_all = [pair_a, pair_b, pair_c]
                             pair_box = [a_base, a_quote, b_base, b_quote, c_base, c_quote]
@@ -52,7 +53,7 @@ def structure_traingular_pairs(coin_list):
                                 if i == c_quote:
                                     counts_c_quote += 1
 
-                            #Determining Triangular Match
+                            # Determining Triangular Match
                             if counts_c_base == 2 and counts_c_quote == 2 and c_base != c_quote:
                                 combined = pair_a + "," + pair_b + "," + pair_c
                                 unique_item = ''.join(sorted(combine_all))
@@ -72,31 +73,176 @@ def structure_traingular_pairs(coin_list):
                                     triangular_pairs_list.append(match_dict)
                                     remove_duplicates_list.append(unique_item)
 
-
     return triangular_pairs_list
 
-#structure prices
-def get_price_for_t_pair(t_pair, prices_json):
 
-    #extract pair info
+# structure prices
+def get_price_for_t_pair(t_pair, prices_json):
+    # extract pair info
     pair_a = t_pair['pair_a']
     pair_b = t_pair['pair_b']
     pair_c = t_pair['pair_c']
 
-    #extract price information for given pairs
-    pair_a_ask = prices_json[pair_a]['lowestAsk']
-    pair_a_bid = prices_json[pair_a]['highestBid']
-    pair_b_ask = prices_json[pair_b]['lowestAsk']
-    pair_b_bid = prices_json[pair_b]['highestBid']
-    pair_c_ask = prices_json[pair_c]['lowestAsk']
-    pair_c_bid = prices_json[pair_c]['highestBid']
+    # extract price information for given pairs
+    pair_a_ask = float(prices_json[pair_a]['lowestAsk'])
+    pair_a_bid = float(prices_json[pair_a]['highestBid'])
+    pair_b_ask = float(prices_json[pair_b]['lowestAsk'])
+    pair_b_bid = float(prices_json[pair_b]['highestBid'])
+    pair_c_ask = float(prices_json[pair_c]['lowestAsk'])
+    pair_c_bid = float(prices_json[pair_c]['highestBid'])
 
-    #output dictionary
+    # output dictionary
     return {
         "pair_a_ask": pair_a_ask,
         "pair_a_bid": pair_a_bid,
         "pair_b_ask": pair_b_ask,
         "pair_b_bid": pair_b_bid,
-        "pair_c_ask": pair_b_ask,
-        "pair_c_bid": pair_b_bid,
+        "pair_c_ask": pair_c_ask,
+        "pair_c_bid": pair_c_bid,
     }
+
+
+# Calculate surface rate Arbitrage Opportunity
+def calc_triangular_arb_surface_rate(t_pair, prices_dict):
+    # Set variables
+    starting_amount = 1
+    min_surface_rate = 0
+    surface_dict = {}
+    contract_2 = ""
+    contract_3 = ""
+    direction_trade_1 = ""
+    direction_trade_2 = ""
+    direction_trade_3 = ""
+    acquired_coin_t2 = 0
+    acquired_coin_t3 = 0
+    calculated = 0
+
+    # Extract Pair Variables
+    a_base = t_pair["a_base"]
+    a_quote = t_pair["a_quote"]
+    b_base = t_pair["b_base"]
+    b_quote = t_pair["b_quote"]
+    c_base = t_pair["c_base"]
+    c_quote = t_pair["c_quote"]
+    pair_a = t_pair["pair_a"]
+    pair_b = t_pair["pair_b"]
+    pair_c = t_pair["pair_c"]
+
+    # Extract price information
+    a_ask = prices_dict["pair_a_ask"]
+    a_bid = prices_dict["pair_a_bid"]
+    b_ask = prices_dict["pair_b_ask"]
+    b_bid = prices_dict["pair_b_bid"]
+    c_ask = prices_dict["pair_c_ask"]
+    c_bid = prices_dict["pair_c_bid"]
+
+    # Set directions and loop through
+    direction_list = ["forward", "reverse"]
+    for direction in direction_list:
+
+        # Set Additional variables for swap information
+        swap_1 = 0
+        swap_2 = 0
+        swap_3 = 0
+        swap_1_rate = 0
+        swap_2_rate = 0
+        swap_3_rate = 0
+
+        """
+        If we are swapping the coin on the left to right then * (1 / Ask)
+        If we are swapping the coin on the right to left then * Bid
+        """
+
+        # Assume starting with a_base and swapping for a_quote
+        if direction == "forward":
+            swap_1 = a_base
+            swap_2 = a_quote
+            swap_1_rate = 1 / a_ask
+            direction_trade_1 = "base_to_quote"
+
+        # Assume starting with a_quote and swapping for a_base
+        if direction == "reverse":
+            swap_1 = a_quote
+            swap_2 = a_base
+            swap_1_rate = a_bid
+            direction_trade_1 = "quote to base"
+
+        # Place first trade
+        contract_1 = pair_a
+        acquired_coin_t1 = starting_amount * swap_1_rate
+
+        """ Forward """
+        # (SCENARIO 1) Udemy video 50 Check if a_quote (acquired_coin) matches b_quote
+        if direction == "forward":
+            if a_quote == b_quote and calculated == 0:
+                swap_2_rate = b_bid
+                acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
+                direction_trade_2 = "quote to base"
+                contract_2 = pair_b
+
+                # If b_base matches c_base
+                if b_base == c_base:
+                    swap_3 = c_base
+                    swap_3_rate = 1 / c_ask
+                    direction_trade_3 = "base_to_quote"
+                    contract_3 = pair_c
+
+                # If b_base matches c_quote
+                if b_base == c_quote:
+                    swap_3 = c_quote
+                    swap_3_rate = c_bid
+                    direction_trade_3 = "quote_to_base"
+                    contract_3 = pair_c
+
+                acquired_coin_t3 = acquired_coin_t2 * swap_3_rate
+                calculated = 1
+
+        # Check if a_quote (acquired_coin) matches b_base
+        if direction == "forward":
+            if a_quote == b_base and calculated == 0:
+                swap_2_rate = 1 / b_ask
+                acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
+                direction_trade_2 = "base_to_quote"
+                contract_2 = pair_b
+
+                # If b_quote matches c_base
+                if b_quote == c_base:
+                    swap_3 = c_base
+                    swap_3_rate = 1 / c_ask
+                    direction_trade_3 = "base_to_quote"
+                    contract_3 = pair_c
+
+                # If b_quote matches c_quote
+                if b_quote == c_quote:
+                    swap_3 = c_quote
+                    swap_3_rate = c_bid
+                    direction_trade_3 = "quote_to_base"
+                    contract_3 = pair_c
+
+                acquired_coin_t3 = acquired_coin_t2 * swap_3_rate
+                calculated = 1
+
+        # Check if a_quote (acquired_coin) matches b_quote
+        if direction == "forward":
+            if a_quote == b_quote and calculated == 0:
+                swap_2_rate = b_bid
+                acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
+                direction_trade_2 = "quote to base"
+                contract_2 = pair_b
+
+                # If b_base matches c_base
+                if b_base == c_base:
+                    swap_3 = c_base
+                    swap_3_rate = 1 / c_ask
+                    direction_trade_3 = "base_to_quote"
+                    contract_3 = pair_c
+
+                # If b_base matches c_quote
+                if b_base == c_quote:
+                    swap_3 = c_quote
+                    swap_3_rate = c_bid
+                    direction_trade_3 = "quote_to_bid"
+                    contract_3 = pair_c
+
+                acquired_coin_t3 = acquired_coin_t2 * swap_3_rate
+                calculated = 1
