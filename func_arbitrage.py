@@ -1,4 +1,6 @@
 import requests
+import json
+import time
 
 
 def get_coin_tickers(url):
@@ -105,7 +107,7 @@ def get_price_for_t_pair(t_pair, prices_json):
 # Calculate surface rate Arbitrage Opportunity
 def calc_triangular_arb_surface_rate(t_pair, prices_dict):
     # Set variables
-    starting_amount = 1
+    starting_amount = 5
     min_surface_rate = 0
     surface_dict = {}
     contract_2 = ""
@@ -165,7 +167,7 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             swap_1 = a_quote
             swap_2 = a_base
             swap_1_rate = a_bid
-            direction_trade_1 = "quote to base"
+            direction_trade_1 = "quote_to_base"
 
         # Place first trade
         contract_1 = pair_a
@@ -177,7 +179,7 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             if a_quote == b_quote and calculated == 0:
                 swap_2_rate = b_bid
                 acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
-                direction_trade_2 = "quote to base"
+                direction_trade_2 = "quote_to_base"
                 contract_2 = pair_b
 
                 # If b_base matches c_base
@@ -227,7 +229,7 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             if a_quote == c_quote and calculated == 0:
                 swap_2_rate = c_bid
                 acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
-                direction_trade_2 = "quote to base"
+                direction_trade_2 = "quote_to_base"
                 contract_2 = pair_c
 
                 # If c_base matches b_base
@@ -278,7 +280,7 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             if a_base == b_quote and calculated == 0:
                 swap_2_rate = b_bid
                 acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
-                direction_trade_2 = "quote to base"
+                direction_trade_2 = "quote_to_base"
                 contract_2 = pair_b
 
                 # If b_base matches c_base
@@ -328,7 +330,7 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             if a_base == c_quote and calculated == 0:
                 swap_2_rate = c_bid
                 acquired_coin_t2 = acquired_coin_t1 * swap_2_rate
-                direction_trade_2 = "quote to base"
+                direction_trade_2 = "quote_to_base"
                 contract_2 = pair_c
 
                 # If c_base matches b_base
@@ -413,3 +415,135 @@ def calc_triangular_arb_surface_rate(t_pair, prices_dict):
             return surface_dict
 
     return surface_dict
+
+
+# Reformat Order Book for Depth Calculation
+def reformatted_orderbook(prices, c_direction):
+
+    price_list_main = []
+    if c_direction == "base_to_quote":
+        for p in prices["asks"]:
+            ask_price = float(p[0])
+            adj_price = 1 / ask_price if ask_price != 0 else 0
+            adj_quantity = float(p[1]) * ask_price
+            price_list_main.append([adj_price, adj_quantity])
+
+    if c_direction == "quote_to_base":
+        for p in prices["bids"]:
+            bid_price = float(p[0])
+            adj_price = bid_price if bid_price != 0 else 0
+            adj_quantity = float(p[1])
+            price_list_main.append([adj_price, adj_quantity])
+
+    return price_list_main
+
+
+# Get Acquired Coin Also known as depth calculation
+def calculate_acquired_coin(amount_in, orderbook):
+    """
+        Challenges
+        Full amount of starting amount can be eaten on the first level (level 0)
+        Some of the amount in can be eaten up by multiple levels
+        Some coins may not have enough liquidity
+        """
+
+    # Initialize Variables
+
+    trading_balance = amount_in
+    quantity_bought = 0
+    acquired_coin = 0
+    counts = 0
+    for level in orderbook:
+
+        # Extract the level price and quantity
+        level_price = level[0]
+        level_available_quantity = level[1]
+
+        # Amount In is <= first level total amount
+        if trading_balance <= level_available_quantity:
+            quantity_bought = trading_balance
+            trading_balance = 0
+            amount_bought = quantity_bought * level_price
+
+        # Amount In is > a given level total amount
+        if trading_balance > level_available_quantity:
+            quantity_bought = level_available_quantity
+            trading_balance -= quantity_bought
+            amount_bought = quantity_bought * level_price
+
+        # Accumulate Acquired Coin
+        acquired_coin = acquired_coin + amount_bought
+
+        # Exit Trade
+        if trading_balance == 0:
+
+            return acquired_coin
+
+        # Exit if not enough order book levels
+        counts += 1
+        if counts == len(orderbook):
+            return 0
+
+
+# Get the Depth from the orderbook
+def get_depth_from_orderbook(surface_arb):
+
+    # Extract initial variables
+    swap_1 = surface_arb["swap_1"]
+    starting_amount = surface_arb["starting_amount"]
+    starting_amount_dict = {
+        "USDT": 100,
+        "USDC": 100,
+        "BTC": 0.05,
+        "ETH": 0.1
+    }
+    # if swap_1 in starting_amount_dict:
+    #     starting_amount = starting_amount_dict[swap_1]
+
+    # Define Pairs
+
+    contract_1 = surface_arb["contract_1"]
+    contract_2 = surface_arb["contract_2"]
+    contract_3 = surface_arb["contract_3"]
+
+    # Define direction for trades
+    contract_1_direction = surface_arb["direction_trade_1"]
+    contract_2_direction = surface_arb["direction_trade_2"]
+    contract_3_direction = surface_arb["direction_trade_3"]
+
+    # Get orderbook for First Trade Assessment
+    url1 = f"https://poloniex.com/public?command=returnOrderBook&currencyPair={contract_1}&depth=20"
+    depth_1_prices = get_coin_tickers(url1)
+    depth_1_reformatted_prices = reformatted_orderbook(depth_1_prices, contract_1_direction)
+
+    url2 = f"https://poloniex.com/public?command=returnOrderBook&currencyPair={contract_2}&depth=20"
+    depth_2_prices = get_coin_tickers(url2)
+    depth_2_reformatted_prices = reformatted_orderbook(depth_2_prices, contract_2_direction)
+
+    url3 = f"https://poloniex.com/public?command=returnOrderBook&currencyPair={contract_3}&depth=20"
+    depth_3_prices = get_coin_tickers(url3)
+    depth_3_reformatted_prices = reformatted_orderbook(depth_3_prices, contract_3_direction)
+
+    # Get Acquired Coins
+    acquired_coin_t1 = calculate_acquired_coin(starting_amount, depth_1_reformatted_prices)
+    acquired_coin_t2 = calculate_acquired_coin(acquired_coin_t1, depth_2_reformatted_prices)
+    acquired_coin_t3 = calculate_acquired_coin(acquired_coin_t2, depth_3_reformatted_prices)
+
+    # Calculate Profit Loss AKA Real Rate
+    profit_loss = acquired_coin_t3 - starting_amount
+    real_rate_percent = (profit_loss / starting_amount) * 100 if profit_loss != 0 else 0
+
+    if real_rate_percent > 0:
+        return_dict = {
+            "profit_loss": profit_loss,
+            "real_rate_percent": real_rate_percent,
+            "contract_1": contract_1,
+            "contract_2": contract_2,
+            "contract_3": contract_3,
+            "contract_1_direction": contract_1_direction,
+            "contract_2_direction": contract_2_direction,
+            "contract_3_direction": contract_3_direction
+        }
+        return return_dict
+    else:
+        return {}

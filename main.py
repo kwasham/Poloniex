@@ -52,10 +52,18 @@ def step_2():
         prices_dict = func_arbitrage.get_price_for_t_pair(t_pairs, prices_json)
         surface_arb = func_arbitrage.calc_triangular_arb_surface_rate(t_pairs, prices_dict)
         if len(surface_arb) > 0:
-            print(surface_arb)
+
+            real_rate_arb = func_arbitrage.get_depth_from_orderbook(surface_arb)
+            print(real_rate_arb)
+
+
+
 
 """ MAIN """
 if __name__ == "__main__":
+
     # coin_list = step_0()
     # structured_pairs = step_1(coin_list)
     step_2()
+
+
